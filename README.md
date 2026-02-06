@@ -1,7 +1,4 @@
-<p align="center">
-  <img src="images/image.png" width="220" />
-</p>
-
+<h1 align="center">zstge</h1>
 <p align="center">
   A practical CLI tool for steganography and metadata inspection.
 </p>
