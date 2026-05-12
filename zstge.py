@@ -1,10 +1,11 @@
-import shutil
 import os
 import sys
+import utils
+import shutil
+import display
 import argparse
 from InquirerPy import prompt
 from pystyle import Anime, Colorate, Colors, Center
-import display, utils
 
 logo = """
                      █████                     
@@ -68,7 +69,13 @@ Usage:
   python zstge.py -h                      Show this help and info
 
 Supported formats for {display.byellow}scan{display.white} (via ExifTool): JPG, JPEG, PNG, PDF, WEBP, MP4, MP3, DOCX, XLSX, PPTX, JSON, ZIP, and 100+ others.
-Supported formats for {display.byellow}hide and remove metadatas{display.white}: JPG, PNG, WEBP, PDF
+Supported formats for {display.byellow}hide and remove metadata{display.white}: JPG, PNG, WEBP, PDF
+
+Notes:
+  PNG  — message embedded as a tEXt chunk; IDAT image data is never modified.
+  JPEG — message written to EXIF Software tag via piexif/ExifTool; no re-encoding.
+  PDF  — message written to /Title via ExifTool incremental update (preferred) or pypdf.
+  WEBP — metadata edited via ExifTool; requires ExifTool in PATH.
         """)
         return
 
@@ -90,7 +97,8 @@ Supported formats for {display.byellow}hide and remove metadatas{display.white}:
 
     if args.remove:
         if os.path.isfile(args.remove):
-            utils.remove_metadata(args.remove)
+            if utils.remove_metadata(args.remove):
+                print(f"\n{display.green}[+] Metadata successfully removed from {args.remove} !{display.white}")
         else:
             print(f"{display.red}[!] File not found: {args.remove}")
         return
@@ -146,13 +154,24 @@ def run_menu():
             os.system('clear')
             print(Colorate.Horizontal(Colors.yellow_to_red, Center.XCenter(logo)))
             file_path = input(f"\n{display.bwhite}[{display.byellow}>{display.bwhite}]{display.white} Enter the path of the file to remove metadata: ")
-            utils.remove_metadata(file_path)
+            if utils.remove_metadata(file_path):
+                print(f"\n{display.green}[+] Metadata successfully removed from {file_path} !{display.white}")
             input(f"\n{display.white}Press {display.bwhite}[ENTER]{display.white} to return to menu")
 
         elif choice.startswith("4"):
             os.system('clear')
             print(Colorate.Horizontal(Colors.yellow_to_red, Center.XCenter(logo)))
-            print(f"\nSupported formats for {display.byellow}scan{display.white} (via ExifTool): JPG, JPEG, PNG, PDF, WEBP, MP4, MP3, DOCX, XLSX, PPTX, JSON, ZIP, and 100+ others.\nSupported formats for {display.byellow}hide and remove metadatas{display.white}: JPG, PNG, WEBP, PDF\n\n{display.bwhite}Zstge is built for metadata testing and steganography research.\nProject: https://github.com/pedrodevoted/zstge")
+            print(
+                f"\nSupported formats for {display.byellow}scan{display.white} (via ExifTool): "
+                "JPG, JPEG, PNG, PDF, WEBP, MP4, MP3, DOCX, XLSX, PPTX, JSON, ZIP, and 100+ others.\n"
+                f"Supported formats for {display.byellow}hide and remove metadata{display.white}: JPG, PNG, WEBP, PDF\n\n"
+                f"{display.bwhite}PNG{display.white}  — tEXt chunk injection after IHDR; IDAT never touched.\n"
+                f"{display.bwhite}JPEG{display.white} — EXIF Software tag patched; no scan data re-encoding.\n"
+                f"{display.bwhite}PDF{display.white}  — /Title via ExifTool incremental update (preferred) or pypdf fallback.\n"
+                f"{display.bwhite}WEBP{display.white} — XMP Comment tag via ExifTool (requires ExifTool).\n\n"
+                f"{display.bwhite}Zstge is built for metadata testing and steganography research.\n"
+                f"Project: https://github.com/pedrodevoted/zstge"
+            )
             input(f"\n{display.white}Press {display.bwhite}[ENTER]{display.white} to return to menu")
 
         elif choice.startswith("5"):
