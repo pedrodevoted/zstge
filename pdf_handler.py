@@ -27,10 +27,8 @@ Estratégia de fallback: pypdf (sucessor do PyPDF2, mesma limitação de reescri
 Se o ExifTool não estiver disponível, usamos pypdf / PyPDF2 e documentamos a
 limitação explicitamente. Ainda minimizamos os danos:
 
-- copiando objetos de página sem descompressão (preserve_graphics=False)
-
+- copiando objetos de página sem descompressão
 - atualizando apenas o dicionário /Info, não o fluxo XMP
-
 - mantendo o caminho do código de fallback o mais enxuto possível
 
 Nota sobre a limitação
@@ -57,6 +55,8 @@ except ImportError:
     except ImportError:
         _PYPDF_AVAILABLE = False
 
+_SENTINEL_PREFIX = "zstge\x00"
+
 
 def _exiftool_available() -> bool:
     return shutil.which("exiftool") is not None
@@ -72,8 +72,6 @@ def _run_exiftool(args: list[str]) -> tuple[bool, str]:
         return result.returncode == 0, result.stdout.strip()
     except Exception as e:
         return False, str(e)
-
-_SENTINEL_PREFIX = "zstge\x00"
 
 
 def insert_message(file_path: str, message: str) -> bool:
@@ -104,13 +102,12 @@ def remove_all_metadata(file_path: str) -> bool:
         if not ok:
             _print_err(f"ExifTool PDF metadata removal failed: {msg}")
         return ok
-
     if _PYPDF_AVAILABLE:
         _warn_rewrite("full metadata removal")
         return _pypdf_set_metadata(file_path, {})
-
     _print_err("No suitable tool available for full PDF metadata removal.")
     return False
+
 
 def _exiftool_set_title(file_path: str, title: str) -> bool:
     _, original = _run_exiftool(["-Title", "-b", file_path])
@@ -136,10 +133,9 @@ def _exiftool_set_title(file_path: str, title: str) -> bool:
 def _exiftool_restore_title(file_path: str) -> bool:
     _, subject = _run_exiftool(["-Subject", "-b", file_path])
     if not subject.startswith(_SENTINEL_PREFIX):
-        return True 
+        return True
 
     original_title = subject[len(_SENTINEL_PREFIX):]
-    args = ["-Subject=", "-overwrite_original"]
     if original_title:
         args = [f"-Title={original_title}", "-Subject=", "-overwrite_original"]
     else:
@@ -155,20 +151,11 @@ def _pypdf_set_metadata(file_path: str, meta_dict: dict) -> bool:
     try:
         reader = PdfReader(file_path)
         writer = PdfWriter()
-
         for page in reader.pages:
             writer.add_page(page)
-    try:
-        reader = PdfReader(file_path)
-        writer = PdfWriter()
-
-        for page in reader.pages:
-            writer.add_page(page)
-
         existing = dict(reader.metadata) if reader.metadata else {}
         existing.update(meta_dict)
         writer.add_metadata(existing)
-
         _atomic_write_pdf(file_path, writer)
         return True
     except Exception as e:
@@ -208,7 +195,7 @@ def _pypdf_restore_title(file_path: str) -> bool:
 
         subject = existing.get("/Subject", "")
         if not isinstance(subject, str) or not subject.startswith(_SENTINEL_PREFIX):
-            return True 
+            return True
 
         original_title = subject[len(_SENTINEL_PREFIX):]
         existing.pop("/Subject", None)
@@ -226,6 +213,7 @@ def _pypdf_restore_title(file_path: str) -> bool:
     except Exception as e:
         _print_err(f"pypdf title restore failed: {e}")
         return False
+
 
 def _atomic_write_pdf(file_path: str, writer) -> None:
     dir_name = os.path.dirname(os.path.abspath(file_path))
